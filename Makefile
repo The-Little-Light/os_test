@@ -1,20 +1,65 @@
-install:
-	nasm -I ./Include/ ./boot/mbr.S -o ./boot/mbr.bin
-	nasm -I ./Include/ ./boot/loader.S -o ./boot/loader.bin
-	dd if=./boot/mbr.bin of=./bochs/hd60M.img bs=512 count=1 conv=notrunc
-	dd if=./boot/loader.bin of=./bochs/hd60M.img bs=512 seek=2 count=3 conv=notrunc
+BUILD_DIR = ./build
+ENTRY_POINT = 0xc0001500
+AS = nasm
+CC = gcc
+LD = ld
+LDFLAGS= -m elf_i386 -Ttext $(ENTRY_POINT) -e main
+ASFLAGS = -f elf
+LIB = -I ./lib/ -I ./lib/kernel/ -I ./lib/user/ -I ./kernel/ -I ./device/
+CFLAGS = -Wall $(LIB) -c -fno-builtin -W -Wstrict-prototypes -Wmissing-prototypes -m32 -fno-stack-protector
 
-	nasm -f elf -o ./build/print.o ./lib/kernel/print.S
-	nasm -f elf -o ./build/kernel.o ./kernel/kernel.S 
+OBJS = $(BUILD_DIR)/main.o $(BUILD_DIR)/init.o $(BUILD_DIR)/interrupt.o \
+$(BUILD_DIR)/timer.o $(BUILD_DIR)/kernel.o $(BUILD_DIR)/print.o \
+$(BUILD_DIR)/debug.o $(BUILD_DIR)/string.o
 
-	gcc -m32 -I ./device/ -I ./lib/kernel -fno-stack-protector  -c -o ./build/timer.o ./device/timer.c
-	gcc -m32 -I ./lib/kernel/ -I ./lib/ -I ./kernel/ -c -fno-builtin -fno-stack-protector -o ./build/main.o ./kernel/main.c
+############## c 代码编译 ###############
+$(BUILD_DIR)/main.o: ./kernel/main.c ./lib/kernel/print.h \
+lib/stdint.h ./kernel/init.h ./lib/string.h
+	$(CC) $(CFLAGS) $< -o $@
 
-	gcc -m32 -I ./lib/kernel/ -I ./lib/ -I ./kernel/ -c -fno-builtin -fno-stack-protector -o ./build/interrupt.o ./kernel/interrupt.c
-	gcc -m32 -I ./device/  -I ./lib/kernel/ -I ./lib/ -I ./kernel/ -c -fno-builtin -fno-stack-protector -o ./build/init.o ./kernel/init.c 
-	ld -m elf_i386 -Ttext 0xc0001500 -e main -o ./build/kernel.bin ./build/main.o ./build/init.o \
-	./build/interrupt.o ./build/print.o ./build/kernel.o ./build/timer.o
+$(BUILD_DIR)/init.o: ./kernel/init.c ./kernel/init.h ./lib/kernel/print.h \
+lib/stdint.h ./kernel/interrupt.h ./device/timer.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/interrupt.o: ./kernel/interrupt.c ./kernel/interrupt.h \
+lib/stdint.h ./kernel/global.h ./lib/kernel/io.h ./lib/kernel/print.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/timer.o: ./device/timer.c ./device/timer.h ./lib/stdint.h\
+lib/kernel/io.h ./lib/kernel/print.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/debug.o: ./kernel/debug.c ./kernel/debug.h \
+lib/kernel/print.h ./lib/stdint.h ./kernel/interrupt.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/string.o: ./lib/string.c ./lib/string.h \
+	./kernel/debug.h ./kernel/global.h
+	$(CC) $(CFLAGS) $< -o $@
+
+############## 汇编代码编译 ###############
+$(BUILD_DIR)/kernel.o: ./kernel/kernel.S
+	$(AS) $(ASFLAGS) $< -o $@
+$(BUILD_DIR)/print.o: ./lib/kernel/print.S
+	$(AS) $(ASFLAGS) $< -o $@
+
+############## 链接所有目标文件 #############
+$(BUILD_DIR)/kernel.bin: $(OBJS)
+	$(LD) $(LDFLAGS) -o $@ $^
+
+.PHONY : mk_dir hd clean all
+
+mk_dir:
+	mkdir -p $(BUILD_DIR)
+
+hd:
+	dd if=$(BUILD_DIR)/kernel.bin  of=./bochs/hd60M.img  bs=512 count=200 seek=9 conv=notrunc
+
+clean:
+	cd $(BUILD_DIR) && rm -f ./*
+
+build: $(BUILD_DIR)/kernel.bin
+
+all: mk_dir build hd
 
 
-	dd if=./build/kernel.bin of=./bochs/hd60M.img bs=512 count=200 seek=9 conv=notrunc
-	rm -rf ./boot/*.bin ./build/*
