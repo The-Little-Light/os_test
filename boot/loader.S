@@ -306,7 +306,7 @@ mov eax, PAGE_DIR_TABLE_POS
 add eax, 0x2000 ; 此时 eax 为第二个页表的位置
 or eax, PG_US_U | PG_RW_W | PG_P ; 页目录项的属性 US､ RW 和 P 位都为 1
 mov ebx, PAGE_DIR_TABLE_POS
-mov ecx, 254 ; 范围为第 769～ 1022 的所有目录项数量
+mov ecx, 254 ; 范围为第 769 ～ 1022 的所有目录项数量
 mov esi, 769
 .create_kernel_pde:
 mov [ebx+esi*4], eax
@@ -315,23 +315,18 @@ add eax, 0x1000
 loop .create_kernel_pde
 
 ; 创建虚拟地址0x08048000对应的目录项，避免后续复制出错
-; 将其目录项指向第三个页表，同理创建2M内存对应空间
-mov eax, PAGE_DIR_TABLE_POS
-add eax, 0x3000
-mov ebx, eax 
-or eax, PG_US_U | PG_RW_W | PG_P
-mov [PAGE_DIR_TABLE_POS + 0x080], eax
+; 将其目录项指向所建 PDE之后，同理创建对应空间的页表项
+mov [ebx + 0x080], eax
+mov ebx, eax
+xor ebx, PG_US_U | PG_RW_W | PG_P ; 将标志位 置空，获取 PDE 地址
 
-mov ecx, 256
-add edx,4096; edx 在之前创建页表项时已被赋值，现在指向 1M 内存处，且包含标志位
-loop .create_pte_se
-mov ecx, 128
-mov esi, 0
-.create_pte_se:
-mov [ebx+esi*4],edx
-add edx,4096
-inc esi
-loop .create_pte_se
+mov edx, ebx
+add edx,4096; edx 现在指向上面所述 PDE 之后
+or edx,PG_US_U | PG_RW_W | PG_P ; 属性为 7, US=1, RW=1, P=1
+
+mov [ebx + 0x48],edx
+; 至此，从页目录项开始共占用 1+1+254+2 = 258 个页框。
+
 
 ret
 

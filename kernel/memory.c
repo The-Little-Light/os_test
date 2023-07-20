@@ -27,13 +27,13 @@ struct virtual_addr kernel_vaddr; // 此结构用来给内核分配虚拟地址
 
 /* 初始化内存池 */
 static void mem_pool_init(uint32_t all_mem) {
-put_str(" mem_pool_init start\n");
-uint32_t page_table_size = PG_SIZE * 256;
-// 页表大小 = 1 页的页目录表 + 第 0 和第 768 个页目录项指向同一个页表 +
-// 第 769～1022 个页目录项共指向 254 个页表，共 256 个页框
-uint32_t used_mem = page_table_size + 0x100000;
-// 0x100000 为低端 1MB 内存
-uint32_t free_mem = all_mem - used_mem;
-uint16_t all_free_pages = free_mem / PG_SIZE;
-// 1 页为 4KB，不管总内存是不是 4k 的倍数
-// 对于以页为单位的内存分配策略，不足 1 页的内存不用考虑了
+    put_str(" mem_pool_init start\n");
+    uint32_t page_table_size = PG_SIZE * 256;
+    // 页表大小 = 1 页的页目录表 + 第 0 和第 768 个页目录项指向同一个页表 +
+    // 第 769～1022 个页目录项共指向 254 个页表，共 256 个页框
+    uint32_t used_mem = page_table_size + 0x100000;
+    // 0x100000 为低端 1MB 内存
+    uint32_t free_mem = all_mem - used_mem;
+    uint16_t all_free_pages = free_mem / PG_SIZE;
+    // 1 页为 4KB，不管总内存是不是 4k 的倍数
+    // 对于以页为单位的内存分配策略，不足 1 页的内存不用考虑了
