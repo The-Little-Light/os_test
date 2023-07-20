@@ -10,11 +10,12 @@ CFLAGS = -Wall $(LIB) -c -fno-builtin -W -Wstrict-prototypes -Wmissing-prototype
 
 OBJS = $(BUILD_DIR)/main.o $(BUILD_DIR)/init.o $(BUILD_DIR)/interrupt.o \
 $(BUILD_DIR)/timer.o $(BUILD_DIR)/kernel.o $(BUILD_DIR)/print.o \
-$(BUILD_DIR)/debug.o $(BUILD_DIR)/string.o
+$(BUILD_DIR)/debug.o $(BUILD_DIR)/string.o $(BUILD_DIR)/memory.o \
+$(BUILD_DIR)/bitmap.o
 
 ############## c 代码编译 ###############
 $(BUILD_DIR)/main.o: ./kernel/main.c ./lib/kernel/print.h \
-lib/stdint.h ./kernel/init.h ./lib/string.h
+lib/stdint.h ./kernel/init.h ./lib/string.h ./kernel/memory.h
 	$(CC) $(CFLAGS) $< -o $@
 
 $(BUILD_DIR)/init.o: ./kernel/init.c ./kernel/init.h ./lib/kernel/print.h \
@@ -35,6 +36,14 @@ lib/kernel/print.h ./lib/stdint.h ./kernel/interrupt.h
 
 $(BUILD_DIR)/string.o: ./lib/string.c ./lib/string.h \
 	./kernel/debug.h ./kernel/global.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/memory.o: kernel/memory.c kernel/memory.h \
+	lib/stdint.h lib/kernel/bitmap.h kernel/debug.h lib/string.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/bitmap.o: lib/kernel/bitmap.c lib/kernel/bitmap.h \
+	lib/string.h kernel/interrupt.h lib/kernel/print.h kernel/debug.h
 	$(CC) $(CFLAGS) $< -o $@
 
 ############## 汇编代码编译 ###############
@@ -58,8 +67,14 @@ hd:
 clean:
 	cd $(BUILD_DIR) && rm -f ./*
 
+load: ./boot/mbr.S ./boot/loader.S ./Include/boot.inc
+	nasm -I ./Include/ ./boot/mbr.S -o $(BUILD_DIR)/mbr.bin
+	nasm -I ./Include/ ./boot/loader.S -o $(BUILD_DIR)/loader.bin
+	dd if=$(BUILD_DIR)/mbr.bin of=./bochs/hd60M.img bs=512 count=1 conv=notrunc
+	dd if=$(BUILD_DIR)/loader.bin of=./bochs/hd60M.img bs=512 seek=2 count=3 conv=notrunc
+
 build: $(BUILD_DIR)/kernel.bin
 
-all: mk_dir build hd
+all: mk_dir load build hd
 
 

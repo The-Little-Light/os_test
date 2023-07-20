@@ -324,7 +324,7 @@ mov edx, ebx
 add edx,4096; edx 现在指向上面所述 PDE 之后
 or edx,PG_US_U | PG_RW_W | PG_P ; 属性为 7, US=1, RW=1, P=1
 
-mov [ebx + 0x48],edx
+mov [ebx + 0x48 * 4],edx
 ; 至此，从页目录项开始共占用 1+1+254+2 = 258 个页框。
 
 

@@ -13,10 +13,10 @@ void bitmap_init(struct bitmap* btmp) {
 }
 
 /* 判断 bit_idx 位是否为 1，若为 1，则返回 true，否则返回 false */
-bool bitmap_scan_test(struct bitmap* btmp, uint32_t bit_idx) {
+int bitmap_scan_test(struct bitmap* btmp, uint32_t bit_idx) {
     uint32_t byte_idx = bit_idx / 8; // 向下取整用于索引数组下标
     uint32_t bit_odd = bit_idx % 8; // 取余用于索引数组内的位
-    return (btmp->bits[byte_idx] & (BITMAP_MASK << bit_odd));
+    return (btmp->bits[byte_idx] & (BITMAP_MASK << bit_odd)) != 0;
 }
 
 /* 在位图中申请连续 cnt 个位，成功，则返回其起始位下标，失败，返回−1 */
@@ -69,15 +69,15 @@ int bitmap_scan(struct bitmap* btmp, uint32_t cnt) {
 
 /* 将位图 btmp 的 bit_idx 位设置为 value */
 void bitmap_set(struct bitmap* btmp, uint32_t bit_idx, int8_t value) {
-ASSERT((value == 0) || (value == 1));
-uint32_t byte_idx = bit_idx / 8; // 向下取整用于索引数组下标
-uint32_t bit_odd = bit_idx % 8; // 取余用于索引数组内的位
+    ASSERT((value == 0) || (value == 1));
+    uint32_t byte_idx = bit_idx / 8; // 向下取整用于索引数组下标
+    uint32_t bit_odd = bit_idx % 8; // 取余用于索引数组内的位
 
-/* 一般都会用个 0x1 这样的数对字节中的位操作
-* 将 1 任意移动后再取反，或者先取反再移位，可用来对位置 0 操作。 */
-if (value) { // 如果 value 为 1
-btmp->bits[byte_idx] |= (BITMAP_MASK << bit_odd);
-} else { // 若为 0
-btmp->bits[byte_idx] &= ~(BITMAP_MASK << bit_odd);
-}
+    /* 一般都会用个 0x1 这样的数对字节中的位操作
+    * 将 1 任意移动后再取反，或者先取反再移位，可用来对位置 0 操作。 */
+    if (value) { // 如果 value 为 1
+    btmp->bits[byte_idx] |= (BITMAP_MASK << bit_odd);
+    } else { // 若为 0
+    btmp->bits[byte_idx] &= ~(BITMAP_MASK << bit_odd);
+    }
 }
