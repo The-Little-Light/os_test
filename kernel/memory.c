@@ -52,7 +52,7 @@ static void* vaddr_get(enum pool_flags pf, uint32_t pg_cnt) {
 }
 
 /* 得到虚拟地址 vaddr 对应的 pte 指针*/
-uint32_t* pte_ptr(uint32_t vaddr) {
+static uint32_t* pte_ptr(uint32_t vaddr) {
     /* 先访问到页表自己 + \
     * 再用页目录项 pde（页目录内页表的索引）作为 pte 的索引访问到页表 + \
     * 再用 pte 的索引作为页内偏移*/
@@ -61,7 +61,7 @@ uint32_t* pte_ptr(uint32_t vaddr) {
 }
 
 /* 得到虚拟地址 vaddr 对应的 pde 的指针 */
-uint32_t* pde_ptr(uint32_t vaddr) {
+static uint32_t* pde_ptr(uint32_t vaddr) {
     /* 0xfffff 用来访问到页表本身所在的地址 */
     uint32_t* pde = (uint32_t*)((0xfffff000) + PDE_IDX(vaddr) * 4);
     return pde;
@@ -97,13 +97,13 @@ static void page_table_add(void* _vaddr, void* _page_phyaddr) {
         ASSERT(!(*pte & 0x00000001));
 
         if (!(*pte & 0x00000001)) {
-        // 只要是创建页表， pte 就应该不存在，多判断一下放心
-        *pte = (page_phyaddr | PG_US_U | PG_RW_W | PG_P_1);
-        // US=1,RW=1,P=1
+            // 只要是创建页表， pte 就应该不存在，多判断一下放心
+            *pte = (page_phyaddr | PG_US_U | PG_RW_W | PG_P_1);
+            // US=1,RW=1,P=1
         } else {//目前应该不会执行到这，因为上面的 ASSERT 会先执行
-        PANIC("pte repeat");
-        *pte = (page_phyaddr | PG_US_U | PG_RW_W | PG_P_1);
-        // US=1,RW=1,P=1
+            PANIC("pte repeat");
+            *pte = (page_phyaddr | PG_US_U | PG_RW_W | PG_P_1);
+            // US=1,RW=1,P=1
         }
     } else { // 页目录项不存在，所以要先创建页目录再创建页表项
         /* 页表中用到的页框一律从内核空间分配 */
@@ -125,42 +125,42 @@ static void page_table_add(void* _vaddr, void* _page_phyaddr) {
 }
 
 /* 分配 pg_cnt 个页空间，成功则返回起始虚拟地址，失败时返回 NULL */
-void* malloc_page(enum pool_flags pf, uint32_t pg_cnt) {
-ASSERT(pg_cnt > 0 && pg_cnt < 3840);
-/*********** malloc_page 的原理是三个动作的合成: ***********
-1 通过 vaddr_get 在虚拟内存池中申请虚拟地址
-2 通过 palloc 在物理内存池中申请物理页
-3 通过 page_table_add 将以上得到的虚拟地址和物理地址在页表中完成映射
-********************************************************************/
-void* vaddr_start = vaddr_get(pf, pg_cnt);
-if (vaddr_start == NULL) {
-return NULL;
-}
+static void* malloc_page(enum pool_flags pf, uint32_t pg_cnt) {
+    ASSERT(pg_cnt > 0 && pg_cnt < 3840);
+    /*********** malloc_page 的原理是三个动作的合成: ***********
+    1 通过 vaddr_get 在虚拟内存池中申请虚拟地址
+    2 通过 palloc 在物理内存池中申请物理页
+    3 通过 page_table_add 将以上得到的虚拟地址和物理地址在页表中完成映射
+    ********************************************************************/
+    void* vaddr_start = vaddr_get(pf, pg_cnt);
+    if (vaddr_start == NULL) {
+        return NULL;
+    }
 
-uint32_t vaddr = (uint32_t)vaddr_start, cnt = pg_cnt;
-struct pool* mem_pool = pf & PF_KERNEL ? &kernel_pool : &user_pool;
+    uint32_t vaddr = (uint32_t)vaddr_start, cnt = pg_cnt;
+    struct pool* mem_pool = pf & PF_KERNEL ? &kernel_pool : &user_pool;
 
-/* 因为虚拟地址是连续的，但物理地址可以是不连续的，所以逐个做映射*/
-while (cnt-- > 0) {
-void* page_phyaddr = palloc(mem_pool);
-if (page_phyaddr == NULL) { //失败时要将曾经已申请的虚拟地址和
-//物理页全部回滚，在将来完成内存回收时再补充
-return NULL;
-}
-page_table_add((void*)vaddr, page_phyaddr); // 在页表中做映射
-vaddr += PG_SIZE; // 下一个虚拟页
-}
-return vaddr_start;
+    /* 因为虚拟地址是连续的，但物理地址可以是不连续的，所以逐个做映射*/
+    while (cnt-- > 0) {
+        void* page_phyaddr = palloc(mem_pool);
+        if (page_phyaddr == NULL) { //失败时要将曾经已申请的虚拟地址和
+            //物理页全部回滚，在将来完成内存回收时再补充
+            return NULL;
+        }
+        page_table_add((void*)vaddr, page_phyaddr); // 在页表中做映射
+        vaddr += PG_SIZE; // 下一个虚拟页
+    }
+    return vaddr_start;
 }
 
 /* 从内核物理内存池中申请 1 页内存，
 成功则返回其虚拟地址，失败则返回 NULL */
 void* get_kernel_pages(uint32_t pg_cnt) {
-void* vaddr = malloc_page(PF_KERNEL, pg_cnt);
-if (vaddr != NULL) { // 若分配的地址不为空，将页框清 0 后返回
-memset(vaddr, 0, pg_cnt * PG_SIZE);
-}
-return vaddr;
+    void* vaddr = malloc_page(PF_KERNEL, pg_cnt);
+    if (vaddr != NULL) { // 若分配的地址不为空，将页框清 0 后返回
+    memset(vaddr, 0, pg_cnt * PG_SIZE);
+    }
+    return vaddr;
 }
 
 
@@ -168,9 +168,9 @@ return vaddr;
 /* 初始化内存池 */
 static void mem_pool_init(uint32_t all_mem) {
     put_str(" mem_pool_init start\n");
-    uint32_t page_table_size = PG_SIZE * 258;
+    uint32_t page_table_size = PG_SIZE * 256;
     // 页表大小 = 1 页的页目录表 + 第 0 和第 768 个页目录项指向同一个页表 +
-    // 第 769～1022 个页目录项共指向 254 个页表，加上 debug 时的 2 个页框，共 258 个页框
+    // 第 769～1022 个页目录项共指向 254 个页表，加上 debug 时的 2 个页框，共 256 个页框
     uint32_t used_mem = page_table_size + 0x100000;
     // 0x100000 为低端 1MB 内存
     uint32_t free_mem = all_mem - used_mem;

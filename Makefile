@@ -67,14 +67,20 @@ hd:
 clean:
 	cd $(BUILD_DIR) && rm -f ./*
 
-load: ./boot/mbr.S ./boot/loader.S ./Include/boot.inc
+
+
+$(BUILD_DIR)/mbr.bin: ./boot/mbr.S ./Include/boot.inc
 	nasm -I ./Include/ ./boot/mbr.S -o $(BUILD_DIR)/mbr.bin
-	nasm -I ./Include/ ./boot/loader.S -o $(BUILD_DIR)/loader.bin
 	dd if=$(BUILD_DIR)/mbr.bin of=./bochs/hd60M.img bs=512 count=1 conv=notrunc
+
+$(BUILD_DIR)/loader.bin: ./boot/loader.S ./Include/boot.inc
+	nasm -I ./Include/ ./boot/loader.S -o $(BUILD_DIR)/loader.bin
 	dd if=$(BUILD_DIR)/loader.bin of=./bochs/hd60M.img bs=512 seek=2 count=3 conv=notrunc
+
+load:  $(BUILD_DIR)/mbr.bin $(BUILD_DIR)/loader.bin
 
 build: $(BUILD_DIR)/kernel.bin
 
-all: clean mk_dir load build hd
+all: mk_dir load build hd
 
 
