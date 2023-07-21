@@ -87,7 +87,7 @@ mov byte [gs:bx], 0x20 ;将待删除的字节补为 0 或空格皆可
 inc bx
 mov byte [gs:bx], 0x07
 shr bx,1
-jmp .set_cursor
+jmp set_cursor
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 .put_other:
@@ -99,7 +99,7 @@ mov byte [gs:bx],0x07 ; 字符属性
 shr bx, 1 ; 恢复老的光标值
 inc bx ; 下一个光标值
 cmp bx, 2000
-jl .set_cursor ; 若光标值小于 2000，表示未写到
+jl set_cursor ; 若光标值小于 2000，表示未写到
 ; 显存的最后，则去设置新的光标值
 ; 若超出屏幕字符数大小（ 2000）
 ; 则换行处理
@@ -119,7 +119,7 @@ sub bx, dx ; 光标值减去除 80 的余数便是取整
 add bx, 80
 cmp bx, 2000
 .is_line_feed_end: ; 若是 LF(\n),将光标移+80 便可
-jl .set_cursor
+jl set_cursor
 
 
 ;屏幕行范围是 0～ 24，滚屏的原理是将屏幕的第 1～ 24 行搬运到第 0～ 23 行
@@ -142,7 +142,8 @@ add ebx, 2
 loop .cls
 mov bx,1920 ;将光标值重置为 1920，最后一行的首字符
 
-.set_cursor:
+global set_cursor:
+set_cursor:
 ;将光标设为 bx 值
 ;;;;;;; 1 先设置高 8 位 ;;;;;;;;
 mov dx, 0x03d4 ;索引寄存器
