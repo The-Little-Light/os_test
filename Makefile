@@ -75,6 +75,6 @@ load: ./boot/mbr.S ./boot/loader.S ./Include/boot.inc
 
 build: $(BUILD_DIR)/kernel.bin
 
-all: mk_dir load build hd
+all: clean mk_dir load build hd
 
 
