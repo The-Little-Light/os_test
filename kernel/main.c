@@ -1,3 +1,4 @@
+#include "console.h"
 #include "print.h"
 #include "init.h"
 #include "thread.h"
@@ -14,7 +15,7 @@ int main(void) {
 
     intr_enable();// 打开中断，使时钟中断起作用
     while(1) {
-    put_str("Main ");
+        console_put_str("Main ");
     };
     return 0;
 }
@@ -25,7 +26,7 @@ void k_thread_a(void* arg) {
     被调用的函数知道自己需要什么类型的参数，自己转换再用 */
     char* para = arg;
     while(1) {
-    put_str(para);
+        // console_put_str(para);
     }
 }
 
@@ -35,6 +36,6 @@ void k_thread_b(void* arg) {
     被调用的函数知道自己需要什么类型的参数，自己转换再用 */
     char* para = arg;
     while(1) {
-    put_str(para);
+        console_put_str(para);
     }
 }

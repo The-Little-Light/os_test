@@ -34,10 +34,7 @@ static void intr_timer_handler(void) {
 
 /* 把操作的计数器 counter_no､ 读写锁属性 rwl､ 计数器模式
 counter_mode 写入模式控制寄存器并赋予初始值 counter_value */
-static void frequency_set(uint8_t counter_port, \
-uint8_t counter_no, \
-uint8_t rwl, \
-uint8_t counter_mode, \
+static void frequency_set(uint8_t counter_port, uint8_t counter_no, uint8_t rwl, uint8_t counter_mode, \
 uint16_t counter_value) {
 /* 往控制字寄存器端口 0x43 中写入控制字 */
 outb(PIT_CONTROL_PORT, \
