@@ -10,13 +10,12 @@ int main(void) {
     put_str("I am kernel\n");
     init_all();
 
-    thread_start("k_thread_a", 9, k_thread_a, "argA ");
-    thread_start("k_thread_b", 8, k_thread_b, "argB ");
-    thread_start("k_thread_c", 10, k_thread_b, "argc ");
+    // thread_start("k_thread_a", 9, k_thread_a, "argA ");
+    // thread_start("k_thread_b", 8, k_thread_b, "argB ");
 
     intr_enable();// 打开中断，使时钟中断起作用
     while(1) {
-        console_put_str("Main ");
+        // console_put_str("Main ");
     };
     return 0;
 }
