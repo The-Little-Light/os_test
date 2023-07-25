@@ -22,3 +22,10 @@ struct ioqueue {
     int32_t tail; // 队尾，数据从队尾处读出
 };
 
+void init_ioqueue(struct ioqueue* ioq);
+bool ioq_full(struct ioqueue* ioq);
+bool ioq_empty(struct ioqueue* ioq);
+char ioq_getchar(struct ioqueue* ioq);
+void ioq_putchar(struct ioqueue* ioq,char chr);
+void ioqueue_init(struct ioqueue* ioq);
+#endif
