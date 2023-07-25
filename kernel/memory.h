@@ -3,6 +3,30 @@
 #include "stdint.h"
 #include "bitmap.h"
 
+
+#define PG_SIZE 4096
+
+/************************ 位图地址 *****************************
+* 因为 0xc009f000 是内核主线程栈顶， 0xc009e000 是内核主线程的 pcb。
+* 一个页框大小的位图可表示 128MB 内存，位图位置安排在地址 0xc009a000，
+* 这样本系统最大支持 4 个页框的位图，即 512MB */
+#define MEM_BITMAP_BASE 0xc009a000
+/******************************************************************/
+
+/* 0xc0000000 是内核从虚拟地址 3G 起。
+x100000 意指跨过低端 1MB 内存，使虚拟地址在逻辑上连续 */
+#define K_HEAP_START 0xc0100000
+#define PDE_IDX(addr) ((addr & 0xffc00000) >> 22)
+#define PTE_IDX(addr) ((addr & 0x003ff000) >> 12)
+
+/* 内存池结构，生成两个实例用于管理内核内存池和用户内存池 */
+struct pool {
+    struct bitmap pool_bitmap; //本内存池用到的位图结构，用于管理物理内存
+    uint32_t phy_addr_start; // 本内存池所管理物理内存的起始地址
+    uint32_t pool_size; // 本内存池字节容量
+};
+
+
 /* 虚拟地址池，用于虚拟地址管理 */
 struct virtual_addr {
 struct bitmap vaddr_bitmap; // 虚拟地址用到的位图结构
