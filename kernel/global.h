@@ -7,6 +7,9 @@
 #define RPL2 2
 #define RPL3 3
 
+#define TI_GDT 0
+#define TI_LDT 1
+
 // ---------------- GDT 描述符属性 ----------------
 
 #define DESC_G_4K 1
@@ -31,10 +34,8 @@ s 为 1 时表示存储段，为 0 时表示系统段
 // x=0,e=0,w=1,a=0 数据段是不可执行的、向上扩展的、可写的，已访问位 a 清 0
 #define DESC_TYPE_TSS 9 // B 位为 0，不忙
 
-#define TI_GDT 0
-#define TI_LDT 1
-
-
+#define USER_STACK3_VADDR (0xc0000000 - 0x1000)
+#define default_prio 31
 
 /*-------------- IDT 描述符属性 ------------*/
 #define IDT_DESC_P 1
@@ -43,10 +44,8 @@ s 为 1 时表示存储段，为 0 时表示系统段
 #define IDT_DESC_32_TYPE 0xE // 32 位的门
 #define IDT_DESC_16_TYPE 0x6 // 16 位的门,不会用到
 // 定义它只为和 32 位门区分
-#define IDT_DESC_ATTR_DPL0 \
-((IDT_DESC_P << 7) + (IDT_DESC_DPL0 << 5) + IDT_DESC_32_TYPE)
-#define IDT_DESC_ATTR_DPL3 \
-((IDT_DESC_P << 7) + (IDT_DESC_DPL3 << 5) + IDT_DESC_32_TYPE)
+#define IDT_DESC_ATTR_DPL0 ((IDT_DESC_P << 7) + (IDT_DESC_DPL0 << 5) + IDT_DESC_32_TYPE)
+#define IDT_DESC_ATTR_DPL3 ((IDT_DESC_P << 7) + (IDT_DESC_DPL3 << 5) + IDT_DESC_32_TYPE)
 
 #define SELECTOR_K_CODE ((1 << 3) + (TI_GDT << 2) + RPL0)
 #define SELECTOR_K_DATA ((2 << 3) + (TI_GDT << 2) + RPL0)
@@ -90,6 +89,13 @@ struct gdt_desc {
     uint8_t base_high_byte;
 };
 
+#define EFLAGS_MBS (1 << 1) // 此项必须要设置
+#define EFLAGS_IF_1 (1 << 9) // if 为 1，开中断
+#define EFLAGS_IF_0 0 // if 为 0，关中断
+#define EFLAGS_IOPL_3 (3 << 12)
+// IOPL3，用于测试用户程序在非系统调用下进行 IO
+#define EFLAGS_IOPL_0 (0 << 12) // IOPL0
 
+#define DIV_ROUND_UP(X, STEP) ((X + STEP - 1) / (STEP))
 
 #endif

@@ -147,7 +147,8 @@ void idt_init() {
     pic_init(); // 初始化 8259A
 
     /* 加载 idt */
-    uint64_t idt_operand = ((sizeof(idt) - 1) | ((uint64_t)((uint32_t)idt << 16)));
+    uint64_t idt_operand = ((sizeof(idt) - 1) | (((uint64_t)((uint32_t)idt)) << 16));
+
     asm volatile("lidt %0" : : "m" (idt_operand));
     put_str("idt_init done\n");
 }

@@ -2,6 +2,7 @@
 #define __KERNEL_MEMORY_H
 #include "stdint.h"
 #include "bitmap.h"
+#include "sync.h"
 
 
 #define PG_SIZE 4096
@@ -24,13 +25,14 @@ struct pool {
     struct bitmap pool_bitmap; //本内存池用到的位图结构，用于管理物理内存
     uint32_t phy_addr_start; // 本内存池所管理物理内存的起始地址
     uint32_t pool_size; // 本内存池字节容量
+    struct lock lock; // 申请内存时互斥
 };
 
 
 /* 虚拟地址池，用于虚拟地址管理 */
 struct virtual_addr {
-struct bitmap vaddr_bitmap; // 虚拟地址用到的位图结构
-uint32_t vaddr_start; // 虚拟地址起始地址
+    struct bitmap vaddr_bitmap; // 虚拟地址用到的位图结构
+    uint32_t vaddr_start; // 虚拟地址起始地址
 };
 
 extern struct pool kernel_pool, user_pool;
@@ -43,6 +45,10 @@ enum pool_flags {
 };
 
 void* get_kernel_pages(uint32_t pg_cnt);
+void* get_user_pages(uint32_t pg_cnt);
+void* get_a_page(enum pool_flags pf,uint32_t vaddr);
+uint32_t addr_v2p(uint32_t vaddr);
+
 
 #define PG_P_1 1 // 页表项或页目录项存在属性位
 #define PG_P_0 0 // 页表项或页目录项存在属性位
