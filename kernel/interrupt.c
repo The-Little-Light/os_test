@@ -7,7 +7,7 @@
 #define PIC_M_DATA 0x21 // 主片的数据端口是 0x21
 #define PIC_S_CTRL 0xa0 // 从片的控制端口是 0xa0
 #define PIC_S_DATA 0xa1 // 从片的数据端口是 0xa1
-#define IDT_DESC_CNT 0x30 // 目前总共支持的中断数
+#define IDT_DESC_CNT 0x81 // 目前总共支持的中断数
 #define EFLAGS_IF 0x00000200 // eflags 寄存器中的 if 位为 1
 #define GET_EFLAGS(EFLAG_VAR) asm volatile("pushfl; popl %0" : "=g" (EFLAG_VAR))
 /*中断门描述符结构体*/
@@ -31,7 +31,7 @@ intr_handler idt_table[IDT_DESC_CNT];
 //只是中断处理程序的入口，最终调用的是 ide_table 中的处理程序
 extern intr_handler intr_entry_table[IDT_DESC_CNT];
 //声明引用定义在 kernel.S 中的中断处理函数入口数组
-
+extern uint32_t syscall_handler(void);
 /* 初始化可编程中断控制器 8259A */
 static void pic_init(void) {
 
@@ -74,6 +74,7 @@ static void idt_desc_init(void) {
     for (i = 0; i < IDT_DESC_CNT; i++) {
         make_idt_desc(&idt[i], IDT_DESC_ATTR_DPL0, intr_entry_table[i]);
     }
+    make_idt_desc(&idt[0x80], IDT_DESC_ATTR_DPL3, syscall_handler);
     put_str(" idt_desc_init done\n");
 }
 /* 通用的中断处理函数，一般用在异常出现时的处理 */
