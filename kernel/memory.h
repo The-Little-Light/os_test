@@ -57,4 +57,20 @@ uint32_t addr_v2p(uint32_t vaddr);
 #define PG_US_S 0 // U/S 属性位值，系统级
 #define PG_US_U 4 // U/S 属性位值，用户级
 
+/* 内存块 */
+struct mem_block {
+struct list_elem free_elem;
+};
+
+/* 内存块描述符 */
+struct mem_block_desc {
+uint32_t block_size; // 内存块大小
+uint32_t blocks_per_arena; // 本 arena 中可容纳此 mem_block 的数量
+struct list free_list; // 目前可用的 mem_block 链表
+};
+
+#define DESC_CNT 7 // 内存块描述符个数
+void* sys_malloc(uint32_t size);
+void block_desc_init(struct mem_block_desc* desc_array);
+
 #endif
