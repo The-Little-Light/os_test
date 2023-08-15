@@ -1,3 +1,7 @@
+#include "stdio-kernel.h"
+#include "stdint.h"
+#include "stdio.h"
+#include "console.h"
 /* 供内核使用的格式化输出函数 */
 void printk(const char* format, ...) {
     va_list args;

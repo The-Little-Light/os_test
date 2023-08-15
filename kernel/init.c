@@ -8,6 +8,7 @@
 #include "keyboard.h"
 #include "tss.h"
 #include "syscall-init.h"
+#include "ide.h"
 
 /*负责初始化所有模块 */
 void init_all() {
@@ -19,5 +20,6 @@ void init_all() {
     console_init(); //控制台初始化最好放在开中断之前
     keyboard_init();
     tss_init();
-    syscall_init();
+    syscall_init(); 
+    ide_init();
 }

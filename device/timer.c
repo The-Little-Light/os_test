@@ -13,7 +13,7 @@
 #define COUNTER_MODE 2
 #define READ_WRITE_LATCH 3
 #define PIT_CONTROL_PORT 0x43
-
+#define mil_seconds_per_intr (1000 / IRQ0_FREQUENCY)
 uint32_t ticks; // ticks 是内核自中断开启以来总共的嘀嗒数
 
 /* 时钟的中断处理函数 */
@@ -34,8 +34,7 @@ static void intr_timer_handler(void) {
 
 /* 把操作的计数器 counter_no､ 读写锁属性 rwl､ 计数器模式
 counter_mode 写入模式控制寄存器并赋予初始值 counter_value */
-static void frequency_set(uint8_t counter_port, uint8_t counter_no, uint8_t rwl, uint8_t counter_mode, \
-uint16_t counter_value) {
+static void frequency_set(uint8_t counter_port, uint8_t counter_no, uint8_t rwl, uint8_t counter_mode, uint16_t counter_value) {
 /* 往控制字寄存器端口 0x43 中写入控制字 */
 outb(PIT_CONTROL_PORT, \
 (uint8_t)(counter_no << 6 | rwl << 4 | counter_mode << 1));
@@ -56,4 +55,20 @@ void timer_init() {
     COUNTER0_VALUE);
     register_handler(0x20, intr_timer_handler);
     put_str("timer_init done\n");
+}
+/* 以 tick 为单位的 sleep，任何时间形式的 sleep 会转换此 ticks 形式 */
+static void ticks_to_sleep(uint32_t sleep_ticks) {
+    uint32_t start_tick = ticks;
+
+    /* 若间隔的 ticks 数不够便让出 cpu */
+    while (ticks - start_tick < sleep_ticks) {
+        thread_yield();
+    }
+}
+
+/* 以毫秒为单位的 sleep 1 秒= 1000 毫秒 */
+void mtime_sleep(uint32_t m_seconds) {
+    uint32_t sleep_ticks = DIV_ROUND_UP(m_seconds, mil_seconds_per_intr);
+    ASSERT(sleep_ticks > 0);
+    ticks_to_sleep(sleep_ticks);
 }

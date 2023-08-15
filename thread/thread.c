@@ -119,10 +119,9 @@ static void make_main_thread(void) {
 }
 
 /* 系统空闲时运行的线程 */
-static void idle(void* arg UNUSED) {
+static void idle(void*  UNUSED) {
     while(1) {
-        thread_asyncblock(TASK_BLOCKED);
-        while(cur_thread->status == TASK_BLOCKED);
+        thread_block(TASK_BLOCKED);
         //执行 hlt 时必须要保证目前处在开中断的情况下
         asm volatile ("sti; hlt" : : : "memory");
     }
@@ -185,17 +184,6 @@ void thread_block(enum task_status stat) {
     intr_set_status(old_status);
 }
 
-/* 当前线程将自己标记为阻塞态(但并不阻塞)，标志其状态为 stat. */
-void thread_asyncblock(enum task_status stat) {
-    /* stat 取值为 TASK_BLOCKED、 TASK_WAITING、 TASK_HANGING，
-    也就是只有这三种状态才不会被调度*/
-    ASSERT(((stat == TASK_BLOCKED) ||  (stat == TASK_WAITING) ||  (stat == TASK_HANGING)));
-    enum intr_status old_status = intr_disable();
-    struct task_struct* cur_thread = running_thread();
-    cur_thread->status = stat; // 置其状态为 stat
-    /* 待当前线程被解除阻塞后才继续运行下面的 intr_set_status */
-    intr_set_status(old_status);
-}
 
 /* 将线程 pthread 解除阻塞 */
 void thread_unblock(struct task_struct* pthread) {
