@@ -56,6 +56,7 @@ void thread_create(struct task_struct* pthread, thread_func function, void* func
     kthread_stack->func_arg = func_arg;
     kthread_stack->ebp = kthread_stack->ebx = \
     kthread_stack->esi = kthread_stack->edi = 0;
+    
 }
 
 /* 初始化线程基本信息 */
@@ -79,6 +80,16 @@ void init_thread(struct task_struct* pthread, char* name, int prio) {
     pthread->elapsed_ticks = 0;
     pthread->pgdir = NULL;
     pthread->stack_magic = 0x19870916; // 自定义的魔数
+    /* 预留标准输入输出*/
+    pthread->fd_table[0] = 0;
+    pthread->fd_table[1] = 1;
+    pthread->fd_table[2] = 2;
+    /* 其余的全置为-1 */
+    uint8_t fd_idx = 3;
+    while (fd_idx < MAX_FILES_OPEN_PER_PROC) {
+    pthread->fd_table[fd_idx] = -1;
+    fd_idx++;
+    }
 }
 
 /* 创建一优先级为 prio 的线程，线程名为 name，

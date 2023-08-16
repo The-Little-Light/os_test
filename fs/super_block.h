@@ -1,5 +1,6 @@
 #ifndef __FS_SUPER_BLOCK_H
 #define __FS_SUPER_BLOCK_H
+#include "stdint.h"
 /* 超级块 */
 struct super_block {
 uint32_t magic;

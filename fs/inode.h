@@ -2,7 +2,9 @@
 #define __FS_INODE_H
 
 #include "list.h"
-
+#include "global.h"
+#include "stdint.h"
+#include "ide.h"
 /* inode 结构 */
 struct inode {
 uint32_t i_no; // inode 编号
@@ -18,4 +20,10 @@ bool write_deny; // 写文件不能并行，进程写文件前检查此标识
 uint32_t i_sectors[13];
 struct list_elem inode_tag;
 };
+
+void inode_sync(struct partition* part,struct inode* inode,void* io_buf);
+struct inode* inode_open(struct partition* part,uint32_t inode_no);
+void inode_close(struct inode* inode);
+void inode_init(uint32_t inode_no,struct inode* new_inode);
+
 #endif

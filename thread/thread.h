@@ -3,7 +3,7 @@
 #include "stdint.h"
 #include "memory.h"
 #include "list.h"
-
+#define MAX_FILES_OPEN_PER_PROC 8 
 /* 自定义通用函数类型，它将在很多线程函数中作为形参类型 */
 typedef void thread_func(void*);
 typedef int16_t pid_t;
@@ -83,6 +83,8 @@ struct task_struct {
     /* 此任务自上 cpu 运行后至今占用了多少 cpu 嘀嗒数，
     也就是此任务执行了多久*/
     uint32_t elapsed_ticks;
+
+    int32_t fd_table[MAX_FILES_OPEN_PER_PROC]; // 文件描述符数组
 
     /* general_tag 的作用是用于线程在一般的队列中的结点 */
     struct list_elem general_tag;
