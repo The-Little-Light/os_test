@@ -13,6 +13,7 @@
 #include "thread.h"
 #include "console.h"
 #include "keyboard.h"
+#include "ioqueue.h"
 
 struct partition* cur_part; // 默认情况下操作的是哪个分区
 
@@ -206,7 +207,7 @@ static void partition_format(struct partition* part) {
     sys_free(buf);
 }
 /* 将最上层路径名称解析出来 */
-static char* path_parse(char* pathname, char* name_store) {
+char* path_parse(char* pathname, char* name_store) {
     if (pathname[0] == '/') { // 根目录不需要单独解析
         /* 路径中出现 1 个或多个连续的字符'/'，将这些'/'跳过，如"///a/b" */
         while(*(++pathname) == '/');

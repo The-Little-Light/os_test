@@ -5,7 +5,7 @@ CC = gcc
 LD = ld
 LDFLAGS= -m elf_i386 -Ttext $(ENTRY_POINT) -e main
 ASFLAGS = -f elf -g
-LIB = -I ./lib/ -I ./lib/kernel/ -I ./lib/user/ -I ./kernel/ -I ./device/ -I ./thread/  -I ./userprog/ -I ./fs
+LIB = -I ./lib/ -I ./lib/kernel/ -I ./lib/user/ -I ./kernel/ -I ./device/ -I ./thread/  -I ./userprog/ -I ./fs -I ./shell
 CFLAGS = -g -Wall $(LIB) -c -fno-builtin -W -Wstrict-prototypes -Wmissing-prototypes -m32 -fno-stack-protector
 
 OBJS = $(BUILD_DIR)/main.o $(BUILD_DIR)/init.o $(BUILD_DIR)/interrupt.o \
@@ -16,7 +16,8 @@ OBJS = $(BUILD_DIR)/main.o $(BUILD_DIR)/init.o $(BUILD_DIR)/interrupt.o \
       $(BUILD_DIR)/ioqueue.o $(BUILD_DIR)/tss.o $(BUILD_DIR)/process.o \
       $(BUILD_DIR)/syscall-init.o $(BUILD_DIR)/syscall.o $(BUILD_DIR)/stdio.o \
       $(BUILD_DIR)/stdio-kernel.o $(BUILD_DIR)/ide.o $(BUILD_DIR)/fs.o $(BUILD_DIR)/inode.o \
-      $(BUILD_DIR)/file.o $(BUILD_DIR)/dir.o  $(BUILD_DIR)/fork.o
+      $(BUILD_DIR)/file.o $(BUILD_DIR)/dir.o  $(BUILD_DIR)/fork.o  $(BUILD_DIR)/shell.o\
+	  $(BUILD_DIR)/buildin_cmd.o
       
 ##############     c代码编译     ###############
 $(BUILD_DIR)/main.o: kernel/main.c lib/kernel/print.h \
@@ -133,6 +134,14 @@ $(BUILD_DIR)/dir.o: fs/dir.c fs/dir.h device/ide.h fs/fs.h fs/inode.h kernel/mem
 $(BUILD_DIR)/fork.o: userprog/fork.c userprog/fork.h kernel/global.h lib/stdint.h lib/string.h \
 	kernel/memory.h kernel/interrupt.h thread/sync.h thread/thread.h  kernel/debug.h userprog/process.h \
 	lib/kernel/stdio-kernel.h fs/file.h lib/kernel/list.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/shell.o: shell/shell.c shell/shell.h kernel/global.h lib/stdint.h lib/string.h \
+	lib/user/syscall.h lib/stdio.h fs/file.h kernel/debug.h  fs/fs.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/buildin_cmd.o: shell/buildin_cmd.c shell/buildin_cmd.h fs/file.h fs/fs.h kernel/debug.h \
+	lib/string.h lib/user/syscall.h fs/dir.h fs/fs.h lib/stdio.h shell/shell.h
 	$(CC) $(CFLAGS) $< -o $@
 
 ############## 汇编代码编译 ###############

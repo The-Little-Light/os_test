@@ -113,4 +113,5 @@ void thread_unblock(struct task_struct* pthread);
 struct task_struct* thread_start(char* name, int prio, thread_func function, void* func_arg);
 void thread_yield(void);
 pid_t fork_pid(void);
+void sys_ps(void);
 #endif

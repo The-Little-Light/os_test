@@ -187,11 +187,12 @@ static void intr_keyboard_handler(void) {
         uint8_t index = (scancode &= 0x00ff);
         // 将扫描码的高字节置 0，主要针对高字节是 e0 的扫描码
         char cur_char = keymap[index][shift]; // 在数组中找到对应的字符
+        if((ctrl_down_last && cur_char == 'l') || (ctrl_down_last && cur_char == 'u'))
+            cur_char -= 'a';
 
         /* 只处理 ASCII 码不为 0 的键 */
         if (cur_char) {
             if(!ioq_full(&kbd_buf)) {
-                put_char(cur_char); // 临时的
                 ioq_putchar(&kbd_buf, cur_char);
             }
             return;
