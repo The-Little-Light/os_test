@@ -31,9 +31,9 @@ retval; \
 uint32_t getpid() {
     return _syscall0(SYS_GETPID);
 }
-/* 打印字符串 str */
-uint32_t write(char* str) {
-    return _syscall1(SYS_WRITE, str);
+/* 把 buf 中 count 个字符写入文件描述符 fd */
+uint32_t write(int32_t fd, const void* buf, uint32_t count) {
+return _syscall3(SYS_WRITE, fd, buf, count);
 }
 /* 申请 size 字节大小的内存，并返回结果 */
 void* malloc(uint32_t size) {
@@ -42,5 +42,5 @@ return (void*)_syscall1(SYS_MALLOC, size);
 
 /* 释放 ptr 指向的内存 */
 void free(void* ptr) {
-_syscall1(SYS_FREE, ptr);
+    _syscall1(SYS_FREE, ptr);
 }

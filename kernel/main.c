@@ -10,6 +10,7 @@
 #include "syscall.h"
 #include "stdio.h"
 #include "fs.h"
+#include "file.h"
 
 void k_thread_a(void*);
 void k_thread_b(void*);
@@ -25,13 +26,13 @@ int main(void) {
     process_execute(u_prog_a, "u_prog_b");
     thread_start("k_thread_a", 31, k_thread_a, "I am thread_a");
     thread_start("k_thread_b", 31, k_thread_a, "I am thread_b");
-    uint32_t fd = sys_open("/file1", O_RDONLY);
-    printf("fd:%d\n", fd);
-    sys_close(fd);
-    printf("%d closed now\n", fd);
-    while(1);
-
-    return 0;
+uint32_t fd = sys_open("/file1", O_RDWR);
+printf("fd:%d\n", fd);
+sys_write(fd, "hello,world\n", 12);
+sys_close(fd);
+printf("%d closed now\n", fd);
+while(1);
+return 0;
 }
 
 
