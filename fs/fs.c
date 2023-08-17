@@ -11,6 +11,7 @@
 #include "debug.h"
 #include "list.h"
 #include "thread.h"
+#include "console.h"
 
 struct partition* cur_part; // 默认情况下操作的是哪个分区
 
@@ -381,7 +382,7 @@ int32_t sys_open(const char* pathname, uint8_t flags) {
 }
 
 /* 将文件描述符转化为文件表的下标 */
-uint32_t fd_local2global(uint32_t local_fd) {
+static uint32_t fd_local2global(uint32_t local_fd) {
     struct task_struct* cur = running_thread();
     int32_t global_fd = cur->fd_table[local_fd];
     ASSERT(global_fd >= 0 && global_fd < MAX_FILE_OPEN);
@@ -465,4 +466,39 @@ void filesys_init() {
     while (fd_idx < MAX_FILE_OPEN) {
         file_table[fd_idx++].fd_inode = NULL;
     }
+}
+
+/* 将 buf 中连续 count 个字节写入文件描述符 fd，
+成功则返回写入的字节数，失败返回-1 */
+int32_t sys_write(int32_t fd, const void* buf, uint32_t count) {
+    if (fd < 0) {
+    printk("sys_write: fd error\n");
+    return -1;
+    }
+    if (fd == stdout_no) {
+        char tmp_buf[1024] = {0};
+        memcpy(tmp_buf, buf, count);
+        console_put_str(tmp_buf);
+        return count;
+    }
+    uint32_t _fd = fd_local2global(fd);
+    struct file* wr_file = &file_table[_fd];
+    if (wr_file->fd_flag & O_WRONLY || wr_file->fd_flag & O_RDWR) {
+        uint32_t bytes_written = file_write(wr_file, buf, count);
+        return bytes_written;
+    } else {
+        console_put_str("sys_write: not allowed to write file without flag O_RDWR or O_WRONLY\n");
+        return -1;
+    }
+}
+/* 从文件描述符 fd 指向的文件中读取 count 个字节到 buf，
+若成功则返回读出的字节数，到文件尾则返回-1 */
+int32_t sys_read(int32_t fd, void* buf, uint32_t count) {
+    if (fd < 0) {
+    printk("sys_read: fd error\n");
+    return -1;
+    }
+    ASSERT(buf != NULL);
+    uint32_t _fd = fd_local2global(fd);
+    return file_read(&file_table[_fd], buf, count);
 }
