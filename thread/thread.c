@@ -80,6 +80,7 @@ void init_thread(struct task_struct* pthread, char* name, int prio) {
     pthread->elapsed_ticks = 0;
     pthread->pgdir = NULL;
     pthread->cwd_inode_nr = 0; // 以根目录作为默认工作路径
+    pthread->parent_pid = -1;
     pthread->stack_magic = 0x19870916; // 自定义的魔数
     /* 预留标准输入输出*/
     pthread->fd_table[0] = 0;
@@ -91,6 +92,10 @@ void init_thread(struct task_struct* pthread, char* name, int prio) {
     pthread->fd_table[fd_idx] = -1;
     fd_idx++;
     }
+}
+
+pid_t fork_pid(void) {
+    return allocate_pid();
 }
 
 /* 创建一优先级为 prio 的线程，线程名为 name，
@@ -170,13 +175,16 @@ void schedule() {
     process_activate(next);
     switch_to(cur, next);
 }
-
+extern void init(void);
 /* 初始化线程环境 */
 void thread_init(void) {
     put_str("thread_init start\n");
     list_init(&thread_ready_list);
     list_init(&thread_all_list);
     lock_init(&pid_lock);
+    /* 先创建第一个用户进程:init */
+    process_execute(init, "init");
+    // 放在第一个初始化，这是第一个进程， init 进程的 pid 为 1
     /* 将当前 main 函数创建为线程 */
     make_main_thread();
     idle_thread = thread_start("idle", 5, idle, NULL);

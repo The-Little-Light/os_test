@@ -44,3 +44,7 @@ return (void*)_syscall1(SYS_MALLOC, size);
 void free(void* ptr) {
     _syscall1(SYS_FREE, ptr);
 }
+int32_t fork(void)
+{
+    return _syscall0(SYS_FORK);
+}
