@@ -23,4 +23,5 @@ void init_all() {
     syscall_init(); 
     ide_init();
     filesys_init();
+    intr_enable();
 }

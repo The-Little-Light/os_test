@@ -712,3 +712,106 @@ int32_t sys_mkdir(const char* pathname) {
     sys_free(io_buf);
     return -1;
 }
+
+/* 目录打开成功后返回目录指针，失败返回 NULL */
+struct dir* sys_opendir(const char* name) {
+    ASSERT(strlen(name) < MAX_PATH_LEN);
+    /* 如果是根目录'/'，直接返回&root_dir */
+    if (name[0] == '/' && name[1] == 0) {
+        return &root_dir;
+    }
+
+    /* 先检查待打开的目录是否存在 */
+    struct path_search_record searched_record;
+    memset(&searched_record, 0, sizeof(struct path_search_record));
+    int inode_no = search_file(name, &searched_record);
+    struct dir* ret = NULL;
+    if (inode_no == -1) { //如果找不到目录，提示不存在的路径
+        printk("In %s, sub path %s not exist\n", name, searched_record.searched_path);
+    } else {
+        if (searched_record.file_type == FT_REGULAR) {
+        printk("%s is regular file!\n", name);
+        } else if (searched_record.file_type == FT_DIRECTORY) {
+        ret = dir_open(cur_part, inode_no);
+        }
+    }
+    dir_close(searched_record.parent_dir);
+    return ret;
+}
+
+/* 成功关闭目录 p_dir 返回 0，失败返回-1 */
+int32_t sys_closedir(struct dir* dir) {
+    int32_t ret = -1;
+    if (dir != NULL) {
+        dir_close(dir);
+        ret = 0;
+    }
+    return ret;
+}
+/*读取目录，成功返回 1 个目录项，失败返回 NULL */
+struct dir_entry* dir_read(struct dir* dir) {
+    struct dir_entry* dir_e = (struct dir_entry*)dir->dir_buf;
+    struct inode* dir_inode = dir->inode;
+    uint32_t all_blocks[140] = {0}, block_cnt = 12;
+    uint32_t block_idx = 0, dir_entry_idx = 0;
+    while (block_idx < 12) {
+        all_blocks[block_idx] = dir_inode->i_sectors[block_idx];
+        block_idx++;
+    }
+    if (dir_inode->i_sectors[12] != 0) { // 若含有一级间接块表
+        ide_read(cur_part->my_disk, dir_inode->i_sectors[12],  all_blocks + 12, 1);
+        block_cnt = 140;
+    }
+    block_idx = 0;
+
+    uint32_t cur_dir_entry_pos = 0;
+    // 当前目录项的偏移，此项用来判断是否是之前已经返回过的目录项
+    uint32_t dir_entry_size = cur_part->sb->dir_entry_size;
+    uint32_t dir_entrys_per_sec = SECTOR_SIZE / dir_entry_size;
+    // 1 扇区内可容纳的目录项个数
+    /* 在目录大小内遍历 */
+    while (dir->dir_pos < dir_inode->i_size) {
+        if (dir->dir_pos >= dir_inode->i_size) {
+            return NULL;
+        }
+        if (all_blocks[block_idx] == 0) {
+        // 如果此块地址为 0，即空块，继续读出下一块
+            block_idx++;
+            continue;
+        }
+        memset(dir_e, 0, SECTOR_SIZE);
+        ide_read(cur_part->my_disk, all_blocks[block_idx], dir_e, 1);
+        dir_entry_idx = 0;
+        /* 遍历扇区内所有目录项 */
+        while (dir_entry_idx < dir_entrys_per_sec) {
+            if ((dir_e + dir_entry_idx)->f_type) {
+            // 如果 f_type 不等于 0，即不等于 FT_UNKNOWN
+            /* 判断是不是最新的目录项，避免返回曾经已经返回过的目录项 */
+            if (cur_dir_entry_pos < dir->dir_pos) {
+                cur_dir_entry_pos += dir_entry_size;
+                dir_entry_idx++;
+                continue;
+            }
+            ASSERT(cur_dir_entry_pos == dir->dir_pos);
+            dir->dir_pos += dir_entry_size;
+            // 更新为新位置，即下一个返回的目录项地址
+            return dir_e + dir_entry_idx;
+            }
+            dir_entry_idx++;
+        }
+        block_idx++;
+    }
+    return NULL;
+}
+
+/* 读取目录 dir 的 1 个目录项，成功后返回其目录项地址，
+到目录尾时或出错时返回 NULL */
+struct dir_entry* sys_readdir(struct dir* dir) {
+    ASSERT(dir != NULL);
+    return dir_read(dir);
+}
+
+/* 把目录 dir 的指针 dir_pos 置 0 */
+void sys_rewinddir(struct dir* dir) {
+    dir->dir_pos = 0;
+}
