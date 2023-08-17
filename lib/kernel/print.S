@@ -164,6 +164,27 @@ out dx, al
 popad
 ret
 
+global cls_screen
+cls_screen:
+pushad
+;;;;;;;;;;;;;;;
+; 由于用户程序的 cpl 为 3，显存段的 dpl 为 0，
+;故用于显存段的选择子 gs 在低于自己特权的环境中为 0，
+; 导致用户程序再次进入中断后， gs 为 0，
+; 故直接在 put_str 中每次都为 gs 赋值
+mov ax, SELECTOR_VIDEO ; 不能直接把立即数送入 gs，需由 ax 中转
+mov gs, ax
+
+mov ebx, 0
+mov ecx, 80*25
+.cls:
+mov word [gs:ebx], 0x0720 ;0x0720 是黑底白字的空格键
+add ebx, 2
+loop .cls
+mov ebx, 0
+jmp set_cursor
+
+
 ;----------将小端字节序的数字变成对应的 ASCII 后，倒置----------
 ;输入:栈中参数为待打印的数字
 ;输出:在屏幕上打印十六进制数字，并不会打印前缀 0x

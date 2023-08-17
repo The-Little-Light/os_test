@@ -41,3 +41,7 @@ void console_put_int(uint32_t num) {
     put_int(num);
     console_release();
 }
+
+void sys_putchar(const char chr){
+    console_put_char(chr);
+}
