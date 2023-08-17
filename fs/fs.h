@@ -40,7 +40,12 @@ SEEK_SET = 1,
 SEEK_CUR,
 SEEK_END
 };
-
+/* 文件属性结构体 */
+struct stat {
+uint32_t st_ino; // inode 编号
+uint32_t st_size; // 尺寸
+enum file_types st_filetype; // 文件类型
+};
 
 extern struct partition* cur_part; // 默认情况下操作的是哪个分区
 void filesys_init(void);
@@ -60,4 +65,5 @@ struct dir_entry* sys_readdir(struct dir* dir);
 int32_t sys_rmdir(const char* pathname);
 char* sys_getcwd(char* buf, uint32_t size);
 int32_t sys_chdir(const char* path);
+int32_t sys_stat(const char* path, struct stat* buf);
 #endif
