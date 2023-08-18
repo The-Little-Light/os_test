@@ -20,15 +20,42 @@ static struct list_elem* thread_tag;// 用于保存队列中的线程结点
 struct task_struct* idle_thread; // idle 线程
 
 extern void switch_to(struct task_struct* cur, struct task_struct* next);
-struct lock pid_lock; // 分配 pid 锁
+
+/* pid 的位图，最大支持 1024 个 pid */
+uint8_t pid_bitmap_bits[128] = {0};
+
+/* pid 池 */
+struct pid_pool {
+    struct bitmap pid_bitmap; // pid 位图
+    uint32_t pid_start; // 起始 pid
+    struct lock pid_lock; // 分配 pid 锁
+}pid_pool;
+
+/* 初始化 pid 池 */
+static void pid_pool_init(void) {
+    pid_pool.pid_start = 1;
+    pid_pool.pid_bitmap.bits = pid_bitmap_bits;
+    pid_pool.pid_bitmap.btmp_bytes_len = 128;
+    bitmap_init(&pid_pool.pid_bitmap);
+    lock_init(&pid_pool.pid_lock);
+}
 /* 分配 pid */
 static pid_t allocate_pid(void) {
-    static pid_t next_pid = 0;
-    lock_acquire(&pid_lock);
-    next_pid++;
-    lock_release(&pid_lock);
-    return next_pid;
+    lock_acquire(&pid_pool.pid_lock);
+    int32_t bit_idx = bitmap_scan(&pid_pool.pid_bitmap, 1);
+    bitmap_set(&pid_pool.pid_bitmap, bit_idx, 1);
+    lock_release(&pid_pool.pid_lock);
+    return (bit_idx + pid_pool.pid_start);
 }
+
+/* 释放 pid */
+static void release_pid(pid_t pid) {
+    lock_acquire(&pid_pool.pid_lock);
+    int32_t bit_idx = pid - pid_pool.pid_start;
+    bitmap_set(&pid_pool.pid_bitmap, bit_idx, 0);
+    lock_release(&pid_pool.pid_lock);
+}
+
 /* 获取当前线程 pcb 指针 */
 struct task_struct* running_thread() {
     uint32_t esp;
@@ -42,7 +69,7 @@ static void kernel_thread(thread_func* function, void* func_arg) {
     /* 执行 function 前要开中断，
     避免后面的时钟中断被屏蔽，而无法调度其他线程 */
     intr_enable();
-    function(func_arg);
+    function(func_arg); 
 }
 
 /* 初始化线程栈 thread_stack，
@@ -122,7 +149,7 @@ struct task_struct* thread_start(char* name, int prio, thread_func function, voi
 
     return thread;
 }
-
+ 
 /* 将 kernel 中的 main 函数完善为主线程 */
 static void make_main_thread(void) {
     /* 因为 main 线程早已运行，
@@ -179,20 +206,7 @@ void schedule() {
     switch_to(cur, next);
 }
 extern void init(void);
-/* 初始化线程环境 */
-void thread_init(void) {
-    put_str("thread_init start\n");
-    list_init(&thread_ready_list);
-    list_init(&thread_all_list);
-    lock_init(&pid_lock);
-    /* 先创建第一个用户进程:init */
-    process_execute(init, "init");
-    // 放在第一个初始化，这是第一个进程， init 进程的 pid 为 1
-    /* 将当前 main 函数创建为线程 */
-    make_main_thread();
-    idle_thread = thread_start("idle", 5, idle, NULL);
-    put_str("thread_init done\n");
-}
+
 
 /* 当前线程将自己阻塞，标志其状态为 stat. */
 void thread_block(enum task_status stat) {
@@ -304,4 +318,78 @@ void sys_ps(void) {
     char* ps_title = "PID PPID STAT TICKS COMMAND\n";
     sys_write(stdout_no, ps_title, strlen(ps_title));
     list_traversal(&thread_all_list, elem2thread_info, 0);
+}
+
+/* 回收 thread_over 的 pcb 和页表，并将其从调度队列中去除 */
+void thread_exit(struct task_struct* thread_over, bool need_schedule) {
+    /* 要保证 schedule 在关中断情况下调用 */
+    intr_disable();
+    thread_over->status = TASK_DIED;
+
+    /* 如果 thread_over 不是当前线程，
+    就有可能还在就绪队列中，将其从中删除 */
+    if (elem_find(&thread_ready_list, &thread_over->general_tag)) {
+        list_remove(&thread_over->general_tag);
+    }
+    if (thread_over->pgdir) { // 如是进程，回收进程的页表
+        mfree_page(PF_KERNEL, thread_over->pgdir, 1);
+    }
+
+    /* 从 all_thread_list 中去掉此任务 */
+    list_remove(&thread_over->all_list_tag);
+
+    /* 回收 pcb 所在的页，主线程的 pcb 不在堆中，跨过 */
+    if (thread_over != main_thread) {
+        mfree_page(PF_KERNEL, thread_over, 1);
+    }
+
+    /* 归还 pid */
+    release_pid(thread_over->pid);
+
+    /* 如果需要下一轮调度则主动调用 schedule */
+    if (need_schedule) {
+        schedule();
+        PANIC("thread_exit: should not be here\n");
+    }
+}
+
+/* 比对任务的 pid */
+static bool pid_check(struct list_elem* pelem, int32_t pid) {
+    struct task_struct* pthread = elem2entry(struct task_struct, all_list_tag, pelem);
+    if (pthread->pid == pid) {
+    return true;
+    }
+    return false;
+    }
+
+/* 根据 pid 找 pcb，若找到则返回该 pcb，否则返回 NULL */
+struct task_struct* pid2thread(int32_t pid) {
+    struct list_elem* pelem = list_traversal(&thread_all_list, pid_check, pid);
+    if (pelem == NULL) {
+    return NULL;
+    }
+    struct task_struct* thread = elem2entry(struct task_struct,\
+    all_list_tag, pelem);
+    return thread;
+}
+
+/* 初始化线程环境 */
+void thread_init(void) {
+    put_str("thread_init start\n");
+
+    list_init(&thread_ready_list);
+    list_init(&thread_all_list);
+    pid_pool_init();
+
+    /* 先创建第一个用户进程:init */
+    process_execute(init, "init");
+    // 放在第一个初始化，这是第一个进程,init 进程的 pid 为 1
+
+    /* 将当前 main 函数创建为线程 */
+    make_main_thread();
+
+    /* 创建 idle 线程 */
+    idle_thread = thread_start("idle", 10, idle, NULL);
+
+    put_str("thread_init done\n");
 }

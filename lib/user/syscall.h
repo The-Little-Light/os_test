@@ -2,6 +2,7 @@
 #define __LIB_USER_SYSCALL_H
 #include "stdint.h"
 #include "fs.h"
+#include "thread.h"
 enum SYSCALL_NR {
     SYS_GETPID,
     SYS_WRITE,
@@ -24,7 +25,10 @@ enum SYSCALL_NR {
     SYS_READDIR,
     SYS_REWINDDIR,
     SYS_STAT,
-    SYS_PS
+    SYS_PS,
+    SYS_EXECV,
+    SYS_EXIT,
+    SYS_WAIT
 };
 uint32_t getpid(void);
 /* 把 buf 中 count 个字符写入文件描述符 fd */
@@ -49,4 +53,9 @@ void rewinddir(struct dir* dir);
 int32_t stat(const char* path, struct stat* buf);
 int32_t chdir(const char* path);
 void ps(void);
+void ps(void);
+int32_t execv(const char* path, const char* argv[]);
+void exit(int32_t status);
+pid_t wait(int32_t* status);
+
 #endif

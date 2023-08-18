@@ -46,7 +46,7 @@ static void* vaddr_get(enum pool_flags pf, uint32_t pg_cnt) {
 }
 
 /* 得到虚拟地址 vaddr 对应的 pte 指针*/
-static uint32_t* pte_ptr(uint32_t vaddr) {
+uint32_t* pte_ptr(uint32_t vaddr) {
     /* 先访问到页表自己 + \
     * 再用页目录项 pde（页目录内页表的索引）作为 pte 的索引访问到页表 + \
     * 再用 pte 的索引作为页内偏移*/
@@ -55,7 +55,7 @@ static uint32_t* pte_ptr(uint32_t vaddr) {
 }
 
 /* 得到虚拟地址 vaddr 对应的 pde 的指针 */
-static uint32_t* pde_ptr(uint32_t vaddr) {
+uint32_t* pde_ptr(uint32_t vaddr) {
     /* 0xfffff 用来访问到页表本身所在的地址 */
     uint32_t* pde = (uint32_t*)((0xfffff000) + PDE_IDX(vaddr) * 4);
     return pde;
@@ -199,6 +199,39 @@ void* get_a_page(enum pool_flags pf, uint32_t vaddr) {
     return (void*)vaddr;
 }
 
+/* 将 cur 页表中的地址 vaddr 与 pf 池中的物理地址关联，仅支持一页空间分配，使用前需先安装页表*/
+void* get_a_page_with_pcb(enum pool_flags pf, uint32_t vaddr, struct task_struct* cur) {
+    struct pool* mem_pool = pf & PF_KERNEL ? &kernel_pool : &user_pool;
+    lock_acquire(&mem_pool->lock);
+
+    /* 先将虚拟地址对应的位图置 1 */
+    int32_t bit_idx = -1;
+
+    /* 若当前是用户进程申请用户内存，就修改用户进程自己的虚拟地址位图 */
+    if (cur->pgdir != NULL && pf == PF_USER) {
+        bit_idx = (vaddr - cur->userprog_vaddr.vaddr_start) / PG_SIZE;
+        ASSERT(bit_idx >= 0);
+        bitmap_set(&cur->userprog_vaddr.vaddr_bitmap, bit_idx, 1);
+
+    } else if (cur->pgdir == NULL && pf == PF_KERNEL){
+        /* 如果是内核线程申请内核内存，就修改 kernel_vaddr */
+        bit_idx = (vaddr - kernel_vaddr.vaddr_start) / PG_SIZE;
+        ASSERT(bit_idx > 0);
+        bitmap_set(&kernel_vaddr.vaddr_bitmap, bit_idx, 1);
+    } else {
+        PANIC("get_a_page:not allow kernel alloc userspace or user alloc kernelspace by get_a_page");
+    }
+
+    void* page_phyaddr = palloc(mem_pool);
+    if (page_phyaddr == NULL) {
+        return NULL;
+    }
+    page_table_add((void*)vaddr, page_phyaddr);
+    lock_release(&mem_pool->lock);
+    return (void*)vaddr;
+}
+
+
 /* 得到虚拟地址映射到的物理地址 */
 uint32_t addr_v2p(uint32_t vaddr) {
     uint32_t* pte = pte_ptr(vaddr);
@@ -220,7 +253,7 @@ struct arena {
 /* 为 malloc 做准备 */
 void block_desc_init(struct mem_block_desc* desc_array) {
     uint16_t desc_idx, block_size = 16;
-
+ 
     /* 初始化每个 mem_block_desc 描述符 */
     for (desc_idx = 0; desc_idx < DESC_CNT; desc_idx++) {
         desc_array[desc_idx].block_size = block_size;
@@ -588,4 +621,18 @@ void* get_a_page_without_opvaddrbitmap(enum pool_flags pf, uint32_t vaddr) {
     page_table_add((void*)vaddr, page_phyaddr);
     lock_release(&mem_pool->lock);
     return (void*)vaddr;
+}
+
+/* 根据物理页框地址 pg_phy_addr 在相应的内存池的位图清 0，不改动页表*/
+void free_a_phy_page(uint32_t pg_phy_addr) {
+    struct pool* mem_pool;
+    uint32_t bit_idx = 0;
+    if (pg_phy_addr >= user_pool.phy_addr_start) {
+        mem_pool = &user_pool;
+        bit_idx = (pg_phy_addr - user_pool.phy_addr_start) / PG_SIZE;
+    } else {
+        mem_pool = &kernel_pool;
+        bit_idx = (pg_phy_addr - kernel_pool.phy_addr_start) / PG_SIZE;
+    }
+    bitmap_set(&mem_pool->pool_bitmap, bit_idx, 0);
 }

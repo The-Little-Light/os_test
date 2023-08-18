@@ -23,7 +23,7 @@ struct gate_desc {
 // 静态函数声明,非必须
 static void make_idt_desc(struct gate_desc* p_gdesc, uint8_t attr, intr_handler function);
 static struct gate_desc idt[IDT_DESC_CNT]; // idt 是中断描述符表
-//本质上就是个中断门描述符数组
+//本质上就是个中断门描述符数组 
 
 char* intr_name[IDT_DESC_CNT]; // 用于保存异常的名字
 intr_handler idt_table[IDT_DESC_CNT];
@@ -80,16 +80,16 @@ static void general_intr_handler(uint8_t vec_nr) {
     return; //IRQ7 和 IRQ15 会产生伪中断（ spurious interrupt），无需处理
     }
     /* 将光标置为 0，从屏幕左上角清出一片打印异常信息的区域，方便阅读 */
-    set_cursor(0);
-    int cursor_pos = 0;
-    while(cursor_pos < 320) {
-    put_char(' ');
-    cursor_pos++;
-    }
+    // set_cursor(0);
+    // int cursor_pos = 0;
+    // while(cursor_pos < 320) {
+    // put_char(' ');
+    // cursor_pos++;
+    // }
 
-    set_cursor(0); // 重置光标为屏幕左上角
+    // set_cursor(0); // 重置光标为屏幕左上角
     put_str("!!!!!!! excetion message begin !!!!!!!!\n");
-    set_cursor(88); // 从第 2 行第 8 个字符开始打印
+    // set_cursor(88); // 从第 2 行第 8 个字符开始打印
     put_str(intr_name[vec_nr]);
     if (vec_nr == 14) { // 若为 Pagefault，将缺失的地址打印出来并悬停
         int page_fault_vaddr = 0;

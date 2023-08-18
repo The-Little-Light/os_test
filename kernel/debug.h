@@ -8,7 +8,7 @@ void panic_spin(char* filename, int line, const char* func, const char* conditio
 * "..."表示定义的宏其参数可变。 */
 #define PANIC(...) panic_spin (__FILE__, __LINE__, __func__, __VA_ARGS__)
 /***********************************************************************/
-
+ 
 #ifdef NDEBUG
 #define ASSERT(CONDITION) ((void)0)
 #else

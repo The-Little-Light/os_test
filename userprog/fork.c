@@ -12,7 +12,7 @@
 #include "file.h"
 #include "list.h"
 extern void intr_exit(void);
-
+ 
 /* 将父进程的 pcb 拷贝给子进程 */
 static int32_t copy_pcb_vaddrbitmap_stack0(struct task_struct* child_thread, struct task_struct* parent_thread) {
     /* a 复制 pcb 所在的整个页，里面包含进程 pcb 信息及特级 0 极的栈，
@@ -35,11 +35,7 @@ static int32_t copy_pcb_vaddrbitmap_stack0(struct task_struct* child_thread, str
     下面将 child_thread->userprog_vaddr.vaddr_bitmap.bits
     指向自己的位图 vaddr_btmp */
     memcpy(vaddr_btmp, child_thread->userprog_vaddr.vaddr_bitmap.bits, bitmap_pg_cnt * PG_SIZE);
-    child_thread->userprog_vaddr.vaddr_bitmap.bits = vaddr_btmp;
-    /* 调试用 */
-    ASSERT(strlen(child_thread->name) < 11);
-    // pcb.name 的长度是 16，为避免下面 strcat 越界
-    strcat(child_thread->name,"_fork");
+    child_thread->userprog_vaddr.vaddr_bitmap.bits = vaddr_btmp; 
     return 0;
 }
 
