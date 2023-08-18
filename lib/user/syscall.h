@@ -28,7 +28,8 @@ enum SYSCALL_NR {
     SYS_PS,
     SYS_EXECV,
     SYS_EXIT,
-    SYS_WAIT
+    SYS_WAIT,
+    SYS_PIPE
 };
 uint32_t getpid(void);
 /* 把 buf 中 count 个字符写入文件描述符 fd */
@@ -57,5 +58,6 @@ void ps(void);
 int32_t execv(const char* path, const char* argv[]);
 void exit(int32_t status);
 pid_t wait(int32_t* status);
+int32_t pipe(int32_t pipefd[2]);
 
 #endif

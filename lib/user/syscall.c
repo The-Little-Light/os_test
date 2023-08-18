@@ -153,3 +153,6 @@ void exit(int32_t status){
 pid_t wait(int32_t* status){
     return _syscall1(SYS_WAIT, status);
 }
+int32_t pipe(int32_t pipefd[2]){
+    return _syscall1(SYS_PIPE, pipefd);
+}
