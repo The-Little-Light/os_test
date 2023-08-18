@@ -142,8 +142,6 @@ static int32_t load(const char* pathname) {
     // 创建用户态虚拟地址位图和新页表
     create_user_vaddr_bitmap(tmp);
     tmp->pgdir = create_page_dir();
-    // 初始化内存块描述符
-    block_desc_init(tmp->u_block_desc);
     /* 重置之前打开的文件 */
     uint8_t fd_idx = 3;
     while(fd_idx < MAX_FILES_OPEN_PER_PROC) {
@@ -180,13 +178,15 @@ static int32_t load(const char* pathname) {
         prog_header_offset += elf_header.e_phentsize;
         prog_idx++;
     }
-    ret = elf_header.e_entry;
 
     // 使用 tmp 替换 cur
     release_prog_resource(cur);
     mfree_page(PF_KERNEL, cur->pgdir, 1);
     memcpy(cur, tmp, PG_SIZE);
     mfree_page(PF_KERNEL, tmp, 1);
+    // 初始化内存块描述符
+    block_desc_init(cur->u_block_desc);
+    ret = elf_header.e_entry;
 
     done:
     switch (ret) {
@@ -215,9 +215,6 @@ int32_t sys_execv(const char* path, const char* argv[]) {
 
 
     int32_t entry_point = load(path);
-    if (entry_point == -1) { // 若加载失败，则返回-1
-    return -1;
-    }
 
     struct task_struct* cur = running_thread();
     /* 修改进程名 */
@@ -233,7 +230,7 @@ int32_t sys_execv(const char* path, const char* argv[]) {
     // 分配栈空间
     intr_0_stack->esp = (void*)((uint32_t)get_a_page(PF_USER,USER_STACK3_VADDR) + PG_SIZE) ;
     
-    // while(1);
+    // while(1);printf("entry_point: %x\n", entry_point);
 
     /* exec 不同于 fork，为使新进程更快被执行，直接从中断返回 */
     asm volatile ("movl %0, %%esp; jmp intr_exit" : :"g" (intr_0_stack) : "memory");

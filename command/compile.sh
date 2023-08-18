@@ -1,3 +1,4 @@
+
 #### 此脚本应该在 command 目录下执行
 
 if [[ ! -d "../lib" || ! -d "../build" ]];then
@@ -11,27 +12,21 @@ fi
 exit
 fi
 
-BIN="prog_no_arg"
-CFLAGS=" -m32 -Wall -c -fno-builtin -W -Wstrict-prototypes -Wmissing-prototypes -Wsystem-headers"
-LIB="../lib/"
-OBJS="../build/string.o ../build/syscall.o ../build/stdio.o ../build/print.o ../build/assert.o"
+BIN="cat"
+CFLAGS=" -m32 -Wall -c -fno-builtin -W -Wstrict-prototypes -Wmissing-prototypes -Wsystem-headers  -fno-stack-protector"
+LIBS="-I ../lib/ -I ../lib/kernel/ -I ../lib/user/ -I ../kernel/ -I ../device/ -I ../thread/ -I ../userprog/ -I ../fs/ -I ../shell/"
+OBJS="../build/string.o ../build/syscall.o ../build/stdio.o ../build/assert.o start.o"
 DD_IN=$BIN
 DD_OUT="../bochs/hd60M.img"
 
-gcc $CFLAGS -I $LIB -o $BIN".o" $BIN".c"
-ld  -m elf_i386  -e main $BIN".o" $OBJS -o $BIN
+nasm -f elf ./start.S -o ./start.o
+ar rcs simple_crt.a $OBJS start.o
+gcc $CFLAGS $LIBS -o $BIN".o" $BIN".c"
+ld  -m elf_i386  $BIN".o" simple_crt.a -o $BIN
+
 SEC_CNT=$(ls -l $BIN|awk '{printf("%d", ($5+511)/512)}')
-echo $SEC_CNT
 
 if [[ -f $BIN ]];then
 dd if=./$DD_IN of=$DD_OUT bs=512 \
 count=$SEC_CNT seek=300 conv=notrunc
 fi
-
-########## 以上核心就是下面这三条命令 ##########
-#gcc -Wall -c -fno-builtin -W -Wstrict-prototypes -Wmissing-prototypes \
-# -Wsystem-headers -I ../lib -o prog_no_arg.o prog_no_arg.c
-#ld -e main prog_no_arg.o ../build/string.o ../build/syscall.o\
-# ../build/stdio.o ../build/assert.o -o prog_no_arg
-#dd if=prog_no_arg of=/home/work/my_workspace/bochs/hd60M.img \
-# bs=512 count=10 seek=300 conv=notrunc
