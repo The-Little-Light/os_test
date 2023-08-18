@@ -142,14 +142,20 @@ static int32_t load(const char* pathname) {
     // 创建用户态虚拟地址位图和新页表
     create_user_vaddr_bitmap(tmp);
     tmp->pgdir = create_page_dir();
-    /* 重置之前打开的文件 */
     uint8_t fd_idx = 3;
+    /* 重置之前打开的文件,保留管道*/
     while(fd_idx < MAX_FILES_OPEN_PER_PROC) {
-        tmp->fd_table[fd_idx] = -1;
+        if (tmp->fd_table[fd_idx] != -1) {
+            if (is_pipe(fd_idx)) {
+                uint32_t global_fd = fd_local2global(fd_idx);
+                ++file_table[global_fd].fd_pos;
+            } else tmp->fd_table[fd_idx] = -1;
+        }else tmp->fd_table[fd_idx] = -1;
+        
         fd_idx++;
     }
 
-
+    
     /* 遍历所有程序头 */
     uint32_t prog_idx = 0;
     while (prog_idx < elf_header.e_phnum) {
@@ -166,8 +172,6 @@ static int32_t load(const char* pathname) {
 
         /* 如果是可加载段就调用 segment_load 加载到内存 */
         if (PT_LOAD == prog_header.p_type) {
-
-
             if (!segment_load(fd, prog_header.p_offset, prog_header.p_filesz, prog_header.p_vaddr,tmp,cur)) {
                 ret = -3;
                 goto done;
@@ -178,14 +182,18 @@ static int32_t load(const char* pathname) {
         prog_header_offset += elf_header.e_phentsize;
         prog_idx++;
     }
-
     // 使用 tmp 替换 cur
     release_prog_resource(cur);
-    mfree_page(PF_KERNEL, cur->pgdir, 1);
+    page_dir_activate(tmp);
+    void * tt = cur->pgdir;
     memcpy(cur, tmp, PG_SIZE);
+
+    mfree_page(PF_KERNEL, tt, 1);
+
     mfree_page(PF_KERNEL, tmp, 1);
     // 初始化内存块描述符
     block_desc_init(cur->u_block_desc);
+
     ret = elf_header.e_entry;
 
     done:
@@ -212,7 +220,6 @@ int32_t sys_execv(const char* path, const char* argv[]) {
     while (argv[argc]) {
         argc++;
     }
-
 
     int32_t entry_point = load(path);
 

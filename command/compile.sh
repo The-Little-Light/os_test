@@ -12,7 +12,7 @@ fi
 exit
 fi
 
-BIN="prog_pipe"
+BIN="cat"
 CFLAGS=" -m32 -Wall -c -fno-builtin -W -Wstrict-prototypes -Wmissing-prototypes -Wsystem-headers  -fno-stack-protector"
 LIBS="-I ../lib/ -I ../lib/kernel/ -I ../lib/user/ -I ../kernel/ -I ../device/ -I ../thread/ -I ../userprog/ -I ../fs/ -I ../shell/"
 OBJS="../build/string.o ../build/syscall.o ../build/stdio.o ../build/assert.o start.o"

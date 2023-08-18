@@ -280,3 +280,10 @@ printf("rm: delete %s failed.\n", argv[1]);
 }
 return ret;
 }
+void buildin_help(uint32_t argc,char** argv){
+    if (argc != 1) {
+        printf("help: no argument support!\n");
+        return;
+    }
+    help();
+}
