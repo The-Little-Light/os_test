@@ -109,6 +109,60 @@ done:
     return ret;
 }
 
+/* 仅释放部分用户进程资源:
+* 1 页表中对应的物理页
+* 2 虚拟内存池占物理页框
+*/
+static void release_prog_resource_part(struct task_struct* release_thread) {
+    uint32_t* pgdir_vaddr = release_thread->pgdir;
+    uint16_t user_pde_nr = 768, pde_idx = 0;
+    uint32_t pde = 0;
+    uint32_t* v_pde_ptr = NULL; // v 表示 var，和函数 pde_ptr 区分
+
+    uint16_t user_pte_nr = 1024, pte_idx = 0;
+    uint32_t pte = 0;
+    uint32_t* v_pte_ptr = NULL; // 加个 v 表示 var，和函数 pte_ptr 区分
+
+    uint32_t* first_pte_vaddr_in_pde = NULL;
+    // 用来记录 pde 中第 1 个 pte 指向的物理页起始地址
+    uint32_t pg_phy_addr = 0;
+
+    /* 回收页表中用户空间的页框 */
+    while (pde_idx < user_pde_nr) {
+        v_pde_ptr = pgdir_vaddr + pde_idx;
+        pde = *v_pde_ptr;
+        if (pde & 0x00000001) {
+            // 如果页目录项 p 位为 1，表示该页目录项下可能有页表项
+            first_pte_vaddr_in_pde = pte_ptr(pde_idx * 0x400000);
+            // 一个页表表示的内存容量是 4MB，即 0x400000
+            pte_idx = 0;
+            while (pte_idx < user_pte_nr) {
+                v_pte_ptr = first_pte_vaddr_in_pde + pte_idx;
+                pte = *v_pte_ptr;
+                if (pte & 0x00000001) {
+                    /* 将 pte 中记录的物理页框直接在相应内存池的位图中清 0 */
+                    pg_phy_addr = pte & 0xfffff000;
+                    free_a_phy_page(pg_phy_addr);
+                }
+                pte_idx++;
+            }
+            /* 将 pde 中记录的物理页框直接在相应内存池的位图中清 0 */
+            pg_phy_addr = pde & 0xfffff000;
+            free_a_phy_page(pg_phy_addr);
+        }
+        pde_idx++;
+    }
+
+    /* 回收用户虚拟地址池所占的物理内存*/
+    uint32_t bitmap_pg_cnt = (release_thread->userprog_vaddr.vaddr_bitmap.btmp_bytes_len)/ PG_SIZE;
+    uint8_t* user_vaddr_pool_bitmap = release_thread ->userprog_vaddr.vaddr_bitmap.bits;
+    mfree_page(PF_KERNEL, user_vaddr_pool_bitmap, bitmap_pg_cnt);
+
+
+}
+
+
+
 /* 从文件系统上加载用户程序 pathname，
 成功则返回程序的起始地址，否则返回-1 */
 static int32_t load(const char* pathname) {
@@ -137,25 +191,13 @@ static int32_t load(const char* pathname) {
     Elf32_Off prog_header_offset = elf_header.e_phoff;
     Elf32_Half prog_header_size = elf_header.e_phentsize;
     // 申请内核内存来中转
-    struct task_struct* cur = running_thread(), *tmp = get_kernel_pages(1);;
+    struct task_struct* cur = running_thread(), *tmp = get_kernel_pages(1);
+
     memcpy(tmp, cur, PG_SIZE);
     // 创建用户态虚拟地址位图和新页表
     create_user_vaddr_bitmap(tmp);
     tmp->pgdir = create_page_dir();
-    uint8_t fd_idx = 3;
-    /* 重置之前打开的文件,保留管道*/
-    while(fd_idx < MAX_FILES_OPEN_PER_PROC) {
-        if (tmp->fd_table[fd_idx] != -1) {
-            if (is_pipe(fd_idx)) {
-                uint32_t global_fd = fd_local2global(fd_idx);
-                ++file_table[global_fd].fd_pos;
-            } else tmp->fd_table[fd_idx] = -1;
-        }else tmp->fd_table[fd_idx] = -1;
-        
-        fd_idx++;
-    }
 
-    
     /* 遍历所有程序头 */
     uint32_t prog_idx = 0;
     while (prog_idx < elf_header.e_phnum) {
@@ -182,17 +224,24 @@ static int32_t load(const char* pathname) {
         prog_header_offset += elf_header.e_phentsize;
         prog_idx++;
     }
+
+    // while(1); 
     // 使用 tmp 替换 cur
-    release_prog_resource(cur);
-    page_dir_activate(tmp);
     void * tt = cur->pgdir;
-    memcpy(cur, tmp, PG_SIZE);
-
-    mfree_page(PF_KERNEL, tt, 1);
-
-    mfree_page(PF_KERNEL, tmp, 1);
+    release_prog_resource_part(cur); 
+    // 复制页表和虚拟地址位图
+    cur->pgdir = tmp->pgdir;
+    cur->userprog_vaddr.vaddr_bitmap.bits = tmp->userprog_vaddr.vaddr_bitmap.bits;
+    cur->userprog_vaddr.vaddr_bitmap.btmp_bytes_len = tmp->userprog_vaddr.vaddr_bitmap.btmp_bytes_len;
+    // 重新加载页表
+    page_dir_activate(cur);
     // 初始化内存块描述符
     block_desc_init(cur->u_block_desc);
+
+    // 释放多余的内存
+    mfree_page(PF_KERNEL, tt, 1);
+    mfree_page(PF_KERNEL, tmp, 1);
+    sys_close(fd);
 
     ret = elf_header.e_entry;
 
@@ -200,7 +249,7 @@ static int32_t load(const char* pathname) {
     switch (ret) {
         case -3:
             // 回收 tmp 的资源
-            release_prog_resource(tmp);
+            release_prog_resource_part(tmp);
             mfree_page(PF_KERNEL, tmp->pgdir, 1);
             mfree_page(PF_KERNEL, tmp, 1);
         case -2:

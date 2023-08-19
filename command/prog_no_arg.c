@@ -11,6 +11,11 @@ return 0;
 // xp 物理 x线性
 // u/20 0x8049000
 /*
+lb 0xc000eca6
+lb 0xc000ec98
+0xc000ea13
+0xc000278c
+0xc0002045
 
 push 0x00000020           ; 6a20
 <bochs:16> 

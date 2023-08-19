@@ -512,26 +512,33 @@ int32_t sys_write(int32_t fd, const void* buf, uint32_t count) {
         }
     }
 }
-
 /* 从文件描述符 fd 指向的文件中读取 count 个字节到 buf，
 若成功则返回读出的字节数，到文件尾则返回-1 */
 int32_t sys_read(int32_t fd, void* buf, uint32_t count) {
     ASSERT(buf != NULL);
     int32_t ret = -1;
+    uint32_t global_fd = 0;
     if (fd < 0 || fd == stdout_no || fd == stderr_no) {
         printk("sys_read: fd error\n");
     } else if (fd == stdin_no) {
+        /* 标准输入有可能被重定向为管道缓冲区，因此要判断 */
+        if (is_pipe(fd)) {
+        ret = pipe_read(fd, buf, count);
+        } else {
         char* buffer = buf;
         uint32_t bytes_read = 0;
         while (bytes_read < count) {
-            *buffer = ioq_getchar(&kbd_buf);
-            bytes_read++;
-            buffer++;
+        *buffer = ioq_getchar(&kbd_buf);
+        bytes_read++;
+        buffer++;
         }
         ret = (bytes_read == 0 ? -1 : (int32_t)bytes_read);
+        }
+    } else if (is_pipe(fd)) { /* 若是管道就调用管道的方法 */
+    ret = pipe_read(fd, buf, count);
     } else {
-        uint32_t _fd = fd_local2global(fd);
-        ret = file_read(&file_table[_fd], buf, count);
+    global_fd = fd_local2global(fd);
+    ret = file_read(&file_table[global_fd], buf, count);
     }
     return ret;
 }
@@ -1047,6 +1054,7 @@ buildin commands:\n\
     pwd: show current work directory\n\
     ps: show process information\n\
     clear: clear screen\n\
+    crypto: enter a num, and maybe you will get some private information\n\
 shortcut key:\n\
     ctrl+l: clear screen\n\
     ctrl+u: clear input\n\n");
